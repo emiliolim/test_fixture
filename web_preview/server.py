@@ -787,11 +787,32 @@ class Handler(SimpleHTTPRequestHandler):
 
     def browse_folder(self):
         # open a native folder picker. In the packaged desktop app this uses the
-        # pywebview dialog (works on Windows and Mac); the browser-only launcher
-        # falls back to macOS osascript.
+        # pywebview dialog (works on Windows and Mac); browser-only launchers
+        # use the platform's available native picker.
         if config.DESKTOP_WINDOW is not None:
             return self.browse_folder_pywebview()
+        if sys.platform == "win32":
+            return self.browse_folder_tkinter()
         return self.browse_folder_osascript()
+
+    def browse_folder_tkinter(self):
+        # The browser launcher has no pywebview window, so use a local Windows
+        # dialog instead of treating the selection as cancelled.
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            selected = filedialog.askdirectory(title="Select a test folder")
+            root.destroy()
+        except Exception as exc:
+            return False, f"Could not open folder picker: {exc}"
+
+        if not selected:
+            return False, "Folder selection cancelled."
+        return True, selected
 
     def browse_folder_pywebview(self):
         import webview
