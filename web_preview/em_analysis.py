@@ -809,38 +809,6 @@ class EMAnalysis():
             fig_dcap_dt.tight_layout()
             plt.close(fig_dcap_dt)
 
-            # ── Excel export ───────────────────────────────────────────────────
-            ref_len = (len(t_cap_used) - 1) if t_cap_used is not None else 0
-
-            def _pad(arr: np.ndarray, length: int) -> np.ndarray:
-                """Trim or NaN-pad 1-D array to `length`."""
-                arr = np.asarray(arr, dtype=float)
-                if len(arr) >= length:
-                    return arr[:length]
-                return np.concatenate([arr, np.full(length - len(arr), np.nan)])
-
-            if ref_len > 0 and t_cap_used is not None and x_smooth_last is not None:
-                xlsx_data = {
-                    'Time':      t_cap_used[:ref_len],
-                    'Pressure':  x_smooth_last[:ref_len],
-                    'dPressure': _pad(dpressure_dt_i, ref_len),
-                }
-                for ch_idx in range(self.ch):
-                    if ch_idx < len(dcap_dt_i):
-                        xlsx_data[f'dCap_CH{ch_idx+1}'] = (
-                            _pad(dcap_dt_i[ch_idx], ref_len)
-                        )
-                        xlsx_data[f'dCap_dPressure_CH{ch_idx+1}'] = (
-                            _pad(fir_dev_i[ch_idx], ref_len)
-                        )
-                    else:
-                        xlsx_data[f'dCap_CH{ch_idx+1}']           = np.full(ref_len, np.nan)
-                        xlsx_data[f'dCap_dPressure_CH{ch_idx+1}'] = np.full(ref_len, np.nan)
-
-                xlsx_df      = pd.DataFrame(xlsx_data)
-                xlsx_filename = self.path / f'dCap_dPressure_Run#{i+1}.xlsx'
-                xlsx_df.to_excel(xlsx_filename, sheet_name=f'Run{i+1}', index=False)
-
     # =========================================================================
     # Summary plots
     # =========================================================================
