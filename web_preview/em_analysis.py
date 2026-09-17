@@ -495,6 +495,9 @@ class EMAnalysis():
         returns nothing.
         • Incremental CAP extracted via interp1 on unique x_plot values.
         """
+        ps_curve_dir = self.path / "PS Curve"
+        ps_curve_dir.mkdir(parents=True, exist_ok=True)
+
         for i in range(self.cap_size):
 
             fig         = plt.figure(figsize=(20, 10))
@@ -793,6 +796,11 @@ class EMAnalysis():
             self.dpressure_dt.append(dpressure_dt_i)
 
             fig.tight_layout()
+            fig.savefig(
+                ps_curve_dir / f"PS curve all CHs number #{i + 1}.svg",
+                format="svg",
+                bbox_inches="tight",
+            )
             plt.close(fig)
 
             fig_dcap_dt.suptitle(

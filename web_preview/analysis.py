@@ -1148,23 +1148,42 @@ class SavedTestAnalyzer:
     def _channel_run_series(self, run_number, channel, cap_runs, readings):
         # capacitance vs time for one channel within one run (synthetic when no cap data).
         run_cap = cap_runs.get(run_number, [])
+        base = [point for point in readings if point["run"] == run_number]
         series = []
         for row in run_cap:
             if len(row["channels"]) >= channel:
-                series.append({"run": run_number, "time": row["time"], "force": row["channels"][channel - 1]})
+                nearest = min(base, key=lambda point: abs(point["time"] - row["time"]), default=None)
+                series.append({
+                    "run": run_number,
+                    "time": row["time"],
+                    "force": row["channels"][channel - 1],
+                    "pressure_force": nearest["force"] if nearest else 0.0,
+                })
         if not series:
-            base = [point for point in readings if point["run"] == run_number]
             series = [{"run": run_number, "time": point["time"],
-                       "force": 18 + point["force"] * (0.82 + channel * 0.055)} for point in base]
+                       "force": (point.get("channels") or [18 + point["force"] * (0.82 + channel * 0.055)])[channel - 1],
+                       "pressure_force": point["force"]} for point in base]
         return series or [{"run": run_number, "time": 0.0, "force": 0.0}]
 
     def _ps_all_channels_svg(self, run_number, cap_runs, readings, title):
-        # overlay all 8 channels (colored per channel) for a single run.
+        # Overlay raw capacitance against pressure for all 8 channels. This is
+        # the fallback PS curve; derivative values belong to the real EM engine.
         series = []
         for channel in range(1, 9):
             for point in self._channel_run_series(run_number, channel, cap_runs, readings):
-                series.append({"run": channel, "time": point["time"], "force": point["force"]})
-        return self._simple_svg(title, series or [{"run": 1, "time": 0.0, "force": 0.0}], "Capacitance (pF)")
+                pressure = self._pressure_from_force(point["pressure_force"])
+                series.append({"run": channel, "x": pressure, "time": pressure, "force": point["force"]})
+        return self._simple_svg(
+            title,
+            series or [{"run": 1, "x": 0.0, "time": 0.0, "force": 0.0}],
+            "Capacitance (pF)",
+            "Pressure (kPa)",
+        )
+
+    def _pressure_from_force(self, force):
+        # Convert load-cell force in newtons to pressure using the selected area.
+        area_m2 = max(1e-9, self.surface_area * 1e-6)
+        return max(0.0, float(force)) / area_m2 / 1000.0
 
     def _shear_failure_checks_tsv(self):
         headers = ["Failure Check", *[f"ch {index}" for index in range(1, 9)]]
@@ -1225,10 +1244,10 @@ class SavedTestAnalyzer:
             readings.append({"run": 1, "time": point[x_key], "force": point[y_key]})
         return self._simple_svg(title, readings, y_label).replace("Time (s)", x_label)
 
-    def _simple_svg(self, title, readings, y_label):
+    def _simple_svg(self, title, readings, y_label, x_label="Time (s)"):
         width, height = 920, 340
         pad_left, pad_right, pad_top, pad_bottom = 64, 22, 48, 48
-        max_time = max((point["time"] for point in readings), default=5) or 5
+        max_x = max((point.get("x", point["time"]) for point in readings), default=5) or 5
         max_force = max((point["force"] for point in readings), default=1) or 1
         plot_width = width - pad_left - pad_right
         plot_height = height - pad_top - pad_bottom
@@ -1238,7 +1257,7 @@ class SavedTestAnalyzer:
             run_points = [point for point in readings if point["run"] == run_number]
             commands = []
             for index, point in enumerate(run_points):
-                x = pad_left + (point["time"] / max_time) * plot_width
+                x = pad_left + (point.get("x", point["time"]) / max_x) * plot_width
                 y = height - pad_bottom - (point["force"] / max_force) * plot_height
                 commands.append(f"{'M' if index == 0 else 'L'}{x:.2f},{y:.2f}")
             paths.append(f'<path d="{" ".join(commands)}" fill="none" stroke="{colors[color_index % len(colors)]}" stroke-width="2.4"/>')
@@ -1246,7 +1265,7 @@ class SavedTestAnalyzer:
   <rect width="{width}" height="{height}" fill="#ffffff"/>
   <text x="{pad_left}" y="25" fill="#161d29" font-size="18" font-family="Arial" font-weight="700">{title}</text>
   <path d="M{pad_left},{pad_top} L{pad_left},{height - pad_bottom} L{width - pad_right},{height - pad_bottom}" fill="none" stroke="#c7d1df"/>
-  <text x="{width / 2}" y="{height - 10}" text-anchor="middle" fill="#697790" font-size="14" font-family="Arial">Time (s)</text>
+    <text x="{width / 2}" y="{height - 10}" text-anchor="middle" fill="#697790" font-size="14" font-family="Arial">{x_label}</text>
   <text x="18" y="{height / 2}" transform="rotate(-90 18 {height / 2})" text-anchor="middle" fill="#697790" font-size="14" font-family="Arial">{y_label}</text>
   {"".join(paths)}
 </svg>'''
