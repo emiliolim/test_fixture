@@ -59,9 +59,9 @@ _HIGH_QUALITY = {
 # orange). The raw-signal figures are colored by what each subplot shows (the
 # type of graph), not by channel.
 SIGNAL_COLORS = {
-    "cap": "tab:blue",          # change in CAP vs time
+    "cap": "tab:blue",          # raw capacitance vs time
     "pressure": "tab:green",    # pressure vs time
-    "hysteresis": "tab:purple", # change in CAP vs pressure (loading curve)
+    "hysteresis": "tab:purple", # raw capacitance vs pressure (loading curve)
     "derivative": "tab:orange", # 1st derivative (matches the P.S figure)
 }
 

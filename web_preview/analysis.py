@@ -846,20 +846,20 @@ class SavedTestAnalyzer:
       }
 
       // ===== Raw Signals tab - the three per-channel subplots, each a grid =====
-      // (1) ΔCAP vs Time
+    // (1) Raw capacitance vs Time
       var rs = [], rsRun = [];
       RUNS.forEach(function (rd, ri) { for (var ci = 0; ci < NCH; ci++) { rs.push({ x: rd.raw.time, y: rd.raw.cap[ci], mode: 'lines', line: { width: 1.4 }, xaxis: 'x' + suf(ci), yaxis: 'y' + suf(ci), visible: ri === 0, showlegend: false }); rsRun.push(ri); } });
-      makePlot('rawGrid', rs, gridLayout(DATA.sensorId + ' - Raw Signals: ΔCAP vs Time', rsRun, 'Time (s)', 'Change in CAP (pF)'));
+    makePlot('rawGrid', rs, gridLayout(DATA.sensorId + ' - Raw Signals: Capacitance vs Time', rsRun, 'Time (s)', 'Capacitance (pF)'));
 
       // (2) Pressure vs Time - one trace per run (pressure is shared across channels)
       var ptr = [], ptrRun = [];
       RUNS.forEach(function (rd, ri) { ptr.push({ x: rd.raw.time, y: rd.raw.pressure, mode: 'lines', line: { width: 1.8, color: '#2e9e4f' }, visible: ri === 0, showlegend: false }); ptrRun.push(ri); });
       makePlot('pressTime', ptr, { title: { text: DATA.sensorId + ' - Raw Signals: Pressure vs Time' }, xaxis: { title: 'Time (s)' }, yaxis: { title: 'Pressure (kPa)' }, hovermode: 'closest', showlegend: false, updatemenus: [{ buttons: gridRunButtons(ptrRun), x: 0, xanchor: 'left', y: 1.16, showactive: true }] });
 
-      // (3) ΔCAP vs Pressure (hysteresis)
+    // (3) Raw capacitance vs Pressure (hysteresis)
       var hy = [], hyRun = [];
       RUNS.forEach(function (rd, ri) { for (var ci = 0; ci < NCH; ci++) { hy.push({ x: rd.raw.pressure, y: rd.raw.cap[ci], mode: 'lines', line: { width: 1.3 }, xaxis: 'x' + suf(ci), yaxis: 'y' + suf(ci), visible: ri === 0, showlegend: false }); hyRun.push(ri); } });
-      makePlot('hystGrid', hy, gridLayout(DATA.sensorId + ' - Raw Signals: ΔCAP vs Pressure (hysteresis)', hyRun, 'Pressure (kPa)', 'Change in CAP (pF)'));
+    makePlot('hystGrid', hy, gridLayout(DATA.sensorId + ' - Raw Signals: Capacitance vs Pressure (hysteresis)', hyRun, 'Pressure (kPa)', 'Capacitance (pF)'));
 
       // ===== Pressure Sensitivity tab - ΔCAP (blue) + 1st derivative (orange, right axis) + inflection =====
       var ps = [], psRun = [], secAxes = {};
@@ -875,18 +875,18 @@ class SavedTestAnalyzer:
         }
       });
       for (var si = 0; si < NCH; si++) { var sp = suf(si); secAxes['yaxis' + (9 + si)] = { overlaying: 'y' + sp, anchor: 'x' + sp, side: 'right', showgrid: false, tickfont: { color: '#f28c28', size: 8 }, title: { text: '1st deriv (pF/kPa)', font: { size: 8, color: '#f28c28' } } }; }
-      makePlot('psGrid', ps, gridLayout(DATA.sensorId + ' - Pressure Sensitivity: ΔCAP (blue) + 1st derivative (orange), • inflection', psRun, 'Pressure (kPa)', 'Change in CAP (pF)', secAxes));
+    makePlot('psGrid', ps, gridLayout(DATA.sensorId + ' - Pressure Sensitivity: Capacitance (blue) + 1st derivative (orange), • inflection', psRun, 'Pressure (kPa)', 'Capacitance (pF)', secAxes));
 
       // ===== All CH/Runs tab =====
       var ac = [], acRun = [];
       RUNS.forEach(function (rd, ri) { for (var ci = 0; ci < NCH; ci++) { var pp = psPoints(rd, ci); ac.push({ x: pp.x, y: pp.y, mode: 'lines', name: 'CH ' + (ci + 1), visible: ri === 0, line: { width: 2 } }); acRun.push(ri); } });
-      makePlot('allChPerRun', ac, { title: { text: DATA.sensorId + ' - All Channels (per run)' }, xaxis: { title: 'Pressure (kPa)' }, yaxis: { title: 'Change in CAP (pF)' }, hovermode: 'closest', showlegend: true, legend: { title: { text: 'click to hide/show' } }, updatemenus: [{ buttons: gridRunButtons(acRun), x: 0, xanchor: 'left', y: 1.16, showactive: true }] });
+    makePlot('allChPerRun', ac, { title: { text: DATA.sensorId + ' - All Channels (per run)' }, xaxis: { title: 'Pressure (kPa)' }, yaxis: { title: 'Capacitance (pF)' }, hovermode: 'closest', showlegend: true, legend: { title: { text: 'click to hide/show' } }, updatemenus: [{ buttons: gridRunButtons(acRun), x: 0, xanchor: 'left', y: 1.16, showactive: true }] });
 
       var ar = [], arCh = [];
       for (var ci = 0; ci < NCH; ci++) { RUNS.forEach(function (rd) { var pp = psPoints(rd, ci); ar.push({ x: pp.x, y: pp.y, mode: 'lines', name: 'Run ' + rd.run, visible: ci === 0, line: { width: 2 } }); arCh.push(ci); }); }
       var chButtons = [];
       for (var cj = 0; cj < NCH; cj++) { (function (cj) { chButtons.push({ label: 'CH ' + (cj + 1), method: 'update', args: [{ visible: arCh.map(function (c) { return c === cj; }) }] }); })(cj); }
-      makePlot('allRunPerCh', ar, { title: { text: DATA.sensorId + ' - All Runs (per channel)' }, xaxis: { title: 'Pressure (kPa)' }, yaxis: { title: 'Change in CAP (pF)' }, hovermode: 'closest', showlegend: true, legend: { title: { text: 'click to hide/show' } }, updatemenus: [{ buttons: chButtons, x: 0, xanchor: 'left', y: 1.16, showactive: true }] });
+    makePlot('allRunPerCh', ar, { title: { text: DATA.sensorId + ' - All Runs (per channel)' }, xaxis: { title: 'Pressure (kPa)' }, yaxis: { title: 'Capacitance (pF)' }, hovermode: 'closest', showlegend: true, legend: { title: { text: 'click to hide/show' } }, updatemenus: [{ buttons: chButtons, x: 0, xanchor: 'left', y: 1.16, showactive: true }] });
     } else if (DATA.manual) {
       function scatter(id, x, y, title, xl, yl, color) {
         makePlot(id, [{ x: x, y: y, mode: 'lines+markers', line: { color: color }, marker: { size: 5 } }],
