@@ -278,17 +278,16 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/start-run":
             # run one real EM press (real FUTEK + Zaber, or the coupled simulator
             # on a machine without the rig). Data is never overwritten: a redo
-            # always creates the next run number and records its reason. Writes
-            # FUT/Run N.xlsx; the UI polls /api/run-status for live force/position.
+            # always creates the next run number and records its reason. The test
+            # folder is created before the run starts; FUT/Run N.xlsx is written
+            # immediately after that run completes.
             import run_log
             from run_engine import ENGINE
             test_folder = self.test_folder_for_payload(payload)
-            # Do NOT create the test folder or write meta here: an EM test must leave
-            # nothing on disk until Perform Analysis. The folder, meta, run files, and
-            # run log are all written then (prepare_test_folder / flush_pending_runs).
-            # run_log.load handles a not-yet-created folder gracefully (empty log); the
-            # run number comes from the UI for a fresh test and from the existing run
-            # log for a redo (whose folder already exists).
+            ok_folder, folder_err = self._ensure_folder(test_folder)
+            if not ok_folder:
+                return {"ok": False, "message": folder_err}
+            self._write_test_meta(test_folder, payload)
             surface_area = self._float_from_text(payload.get("surface_area"), default=325.0)
             log = run_log.load(test_folder)
             redo_of = payload.get("redo_of")
@@ -595,8 +594,8 @@ class Handler(SimpleHTTPRequestHandler):
         }
 
     def prepare_test_folder(self, payload, test_folder):
-        # perform analysis is the point where folders and preview data files are actually written.
-        # Data is never overwritten: a redo always adds a new run number instead.
+        # Create any missing folders and write non-EM data supplied by the UI.
+        # Completed EM runs are already persisted as each run finishes.
         test_folder = Path(test_folder).expanduser()
         fut_folder = test_folder / "FUT"
         cap_folder = test_folder / "CAP"
@@ -604,9 +603,7 @@ class Handler(SimpleHTTPRequestHandler):
         cap_folder.mkdir(parents=True, exist_ok=True)
         self._write_test_meta(test_folder, payload)
 
-        # EM runs are captured in memory during the test; this is the point where they
-        # are written to disk (Perform Analysis is the first time any run file exists).
-        # No-op for tests that captured no runs.
+        # Flush only a run that could not be persisted during completion.
         from run_engine import ENGINE
         ENGINE.flush_pending_runs(test_folder)
 

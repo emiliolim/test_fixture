@@ -350,10 +350,8 @@ class RunEngine:
         # compression and decompression share one reference (a per-move tare would read 0
         # at the start of a decompress and stop it instantly). None until first captured.
         self._manual_baseline = None
-        # EM run captures held in memory until Perform Analysis is clicked. Maps
-        # run_number -> {"readings", "redo_of", "reason"}. Nothing is written to disk
-        # during an EM test; the run files are created only when analysis is performed
-        # (see flush_pending_runs and server.prepare_test_folder).
+        # EM captures are briefly held here while a completed run is being persisted.
+        # The normal path writes each run immediately after it returns home.
         self.pending_runs = {}
         self.reset_live()
 
@@ -999,17 +997,12 @@ class RunEngine:
                 time.sleep(SAMPLE_DT)
 
             self._home(axis)
-            # Hold this run in memory instead of writing it now: no run files are
-            # created during the EM test. They are written to disk (and logged) only
-            # when the operator clicks Perform Analysis - see flush_pending_runs.
-            # Capacitance is NEVER fabricated: the CAP/ folder is filled by the
-            # operator's real capacitance file(s), so only FUT force data is captured
-            # here and the analysis shows empty capacitance graphs until CAP is added.
             self.pending_runs[int(run_number)] = {
                 "readings": list(readings), "redo_of": redo_of, "reason": reason,
             }
+            self.save_completed_run(test_folder, int(run_number))
             self._set(status="completed", position=HOME_MM, redo_of=redo_of, trace=list(trace),
-                      message=f"Run {run_number} complete - {len(readings)} samples recorded (saved when you click Perform Analysis).")
+                      message=f"Run {run_number} complete - {len(readings)} samples saved.")
         except ForceSpikeStop:
             self._stop_axis(axis)
             self._home(axis)
@@ -1625,20 +1618,23 @@ class RunEngine:
         return path
 
     def flush_pending_runs(self, test_folder):
-        # Write every EM run captured this session to disk, then record it in the run
-        # log. This is the ONLY place EM run files are created; it runs when Perform
-        # Analysis is clicked (via server.prepare_test_folder), so nothing exists on
-        # disk until then. A no-op for tests that captured no runs (Shear/Manual/Fatigue
-        # write their own data and never populate pending_runs).
+        # Flush any run left over if the process was interrupted during its save.
         if not self.pending_runs:
             return
-        import run_log
         for run_number in sorted(self.pending_runs):
-            entry = self.pending_runs[run_number]
-            self._write_fut(test_folder, run_number, entry["readings"])
-            run_log.record_run(test_folder, run_number,
-                               redo_of=entry.get("redo_of"), reason=entry.get("reason"))
-        self.pending_runs = {}
+            self.save_completed_run(test_folder, run_number)
+
+    def save_completed_run(self, test_folder, run_number):
+        # Persist one completed EM run and record it before the UI is told that
+        # the run finished.
+        entry = self.pending_runs.get(int(run_number))
+        if not entry:
+            return
+        import run_log
+        self._write_fut(test_folder, int(run_number), entry["readings"])
+        run_log.record_run(test_folder, int(run_number),
+                           redo_of=entry.get("redo_of"), reason=entry.get("reason"))
+        self.pending_runs.pop(int(run_number), None)
 
     def _write_fut(self, test_folder, run_number, readings):
         fut_dir = Path(test_folder) / "FUT"
